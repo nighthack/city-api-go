@@ -52,22 +52,17 @@ type server struct {
 }
 
 func (s *server) routes() {
-	s.router.HandleFunc("/user", s.createUser()).Methods("POST")
+	s.router.HandleFunc("/user", s.createUser).Methods("POST")
 	s.router.HandleFunc("/suggest?city_name={city}", s.handleIndex()).Methods("GET")
 }
 
 func main() {
-	sr := &server{
-        router: mux.NewRouter(),
-        cities: getMongoDBCollection('city') // implement this one :) should return a *mongo.Collection...
-    }
-    sr.routes()
-	// r := mux.NewRouter()
-	// r.HandleFunc("/user", createUser).Methods("POST")
+	r := mux.NewRouter()
+	r.HandleFunc("/user", createUser).Methods("POST")
 	// r.HandleFunc("/suggest?city_name={city}", searchCity).Methods("GET")
 
 	fmt.Println("Server running at port 8080")
-	log.Fatal(http.ListenAndServe(":8080", sr.router))
+	log.Fatal(http.ListenAndServe(":8080", r))
 
 }
 
@@ -78,7 +73,7 @@ func (s *server) handleIndex() http.HandlerFunc {
 	}
 }
 
-func createUser(w http.ResponseWriter, r *http.Request) {
+func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Body == nil {
 		json.NewEncoder(w).Encode("Must send data")
@@ -98,9 +93,9 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (a *App) searchCity(w http.ResponseWriter, r *http.Request) {
+// func searchCity(w http.ResponseWriter, r *http.Request) {
 
-	vars := mux.Vars(r)
-	city := vars["city"]
+// 	vars := mux.Vars(r)
+// 	city := vars["city"]
 
-}
+// }
