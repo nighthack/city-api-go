@@ -14,7 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
-func setup() {
+func (s *server) setup() {
 	clientOptions := options.Client().
 		ApplyURI("mongodb+srv://Fiddler46:Fiddler46@cluster0.um5qb.mongodb.net/cities-nighthack?retryWrites=true&w=majority")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -28,8 +28,8 @@ func setup() {
 		log.Fatal(err)
 	}
 	defer client.Disconnect(ctx)
-	// DB := client.Database("cities-nighthack")
-	// Cities := DB.Collection("city")
+	DB := client.Database("cities-nighthack")
+	s.cities = DB.Collection("city")
 
 }
 
@@ -57,12 +57,16 @@ func (s *server) routes() {
 }
 
 func main() {
-	r := mux.NewRouter()
-	r.HandleFunc("/user", createUser).Methods("POST")
+	sr := &server{
+        router: mux.NewRouter(),
+        cities: getMongoDBCollection("city") // should return a *mongo.Collection...
+    }
+    sr.routes()
+	// r.HandleFunc("/user", createUser).Methods("POST")
 	// r.HandleFunc("/suggest?city_name={city}", searchCity).Methods("GET")
 
 	fmt.Println("Server running at port 8080")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Fatal(http.ListenAndServe(":8080", sr.router))
 
 }
 
