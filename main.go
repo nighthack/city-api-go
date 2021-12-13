@@ -14,7 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
-func (s *server) setup() {
+func setup() mongo.Collection {
 	clientOptions := options.Client().
 		ApplyURI("mongodb+srv://Fiddler46:Fiddler46@cluster0.um5qb.mongodb.net/cities-nighthack?retryWrites=true&w=majority")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -27,14 +27,16 @@ func (s *server) setup() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer client.Disconnect(ctx)
-	DB := client.Database("cities-nighthack")
-	s.cities = DB.Collection("city")
+	//defer client.Disconnect(ctx)
+	DB := client.Database("cities-nighthack").Collection("city")
+	return *DB
+	// s.cities = DB.Collection("city")
 
 }
 
 // model for user endpoint
 type User struct {
+	Users []User
 	Email string `json:"email"`
 }
 
@@ -51,33 +53,24 @@ type server struct {
 	cities *mongo.Collection
 }
 
-func (s *server) routes() {
-	s.router.HandleFunc("/user", s.createUser).Methods("POST")
-	s.router.HandleFunc("/suggest?city_name={city}", s.handleIndex()).Methods("GET")
-}
-
 func main() {
-	sr := &server{
-        router: mux.NewRouter(),
-        cities: getMongoDBCollection("city") // should return a *mongo.Collection...
-    }
-    sr.routes()
-	// r.HandleFunc("/user", createUser).Methods("POST")
-	// r.HandleFunc("/suggest?city_name={city}", searchCity).Methods("GET")
+	r := mux.NewRouter()
+	r.HandleFunc("/user", createUser).Methods("POST")
+	//r.HandleFunc("/suggest?city_name={city}", searchCity).Methods("GET")
 
 	fmt.Println("Server running at port 8080")
-	log.Fatal(http.ListenAndServe(":8080", sr.router))
+	log.Fatal(http.ListenAndServe(":8080", r))
 
 }
 
-func (s *server) handleIndex() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		cities := s.cities.Find // something like that
-		// the response
-	}
-}
+// func (s *server) handleIndex() http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		cities := s.cities.Find // something like that
+// 		// the response
+// 	}
+// }
 
-func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
+func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Body == nil {
 		json.NewEncoder(w).Encode("Must send data")
@@ -97,9 +90,8 @@ func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// func searchCity(w http.ResponseWriter, r *http.Request) {
+func searchCity(w http.ResponseWriter, r *http.Request) {
+	DB := setup()
+	vars := mux.Vars(r)
 
-// 	vars := mux.Vars(r)
-// 	city := vars["city"]
-
-// }
+}
