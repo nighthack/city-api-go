@@ -14,7 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
-func setup() mongo.Collection {
+func setup() mongo.Database {
 	clientOptions := options.Client().
 		ApplyURI("mongodb+srv://Fiddler46:Fiddler46@cluster0.um5qb.mongodb.net/cities-nighthack?retryWrites=true&w=majority")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -28,10 +28,8 @@ func setup() mongo.Collection {
 		log.Fatal(err)
 	}
 	//defer client.Disconnect(ctx)
-	DB := client.Database("cities-nighthack").Collection("city")
+	DB := client.Database("cities-nighthack")
 	return *DB
-	// s.cities = DB.Collection("city")
-
 }
 
 // model for user endpoint
@@ -56,7 +54,7 @@ type server struct {
 func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/user", createUser).Methods("POST")
-	//r.HandleFunc("/suggest?city_name={city}", searchCity).Methods("GET")
+	r.HandleFunc("/suggest", searchCity).Methods("GET")
 
 	fmt.Println("Server running at port 8080")
 	log.Fatal(http.ListenAndServe(":8080", r))
@@ -92,6 +90,19 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 func searchCity(w http.ResponseWriter, r *http.Request) {
 	DB := setup()
-	vars := mux.Vars(r)
+	values := r.URL.Query()
+	city := values.Get("city_name")
+	// params := mux.Vars(r)
+	// city := params["city"]
 
+	cityCollection := DB.Collection("city")
+
+	cityList, err := cityCollection.Find(r.Context(), city, options.Find().SetProjection("all_names", "country_name"))
+	if err != nil {
+		panic(err)
+	}
 }
+
+// `Find` is supposed to be structured like so
+// `func (*mongo.Collection).Find(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (*mongo.Cursor, error)`
+// So I must be doing something wrong there cause my param isn't an interface, is it?
