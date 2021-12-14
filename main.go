@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -69,6 +70,7 @@ func main() {
 // }
 
 func createUser(w http.ResponseWriter, r *http.Request) {
+	DB := setup()
 	w.Header().Set("Content-Type", "application/json")
 	if r.Body == nil {
 		json.NewEncoder(w).Encode("Must send data")
@@ -89,20 +91,41 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func searchCity(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
 	DB := setup()
 	values := r.URL.Query()
 	city := values.Get("city_name")
+
+	// projection := bson.M{
+	// 	"all_names":    *city,
+	// 	"country_name": *city,
+	// }
 	// params := mux.Vars(r)
 	// city := params["city"]
 
 	cityCollection := DB.Collection("city")
 
-	cityList, err := cityCollection.Find(r.Context(), city, options.Find().SetProjection("all_names", "country_name"))
+	cursor, err := cityCollection.Find(r.Context(), city) // options.Find().SetProjection(projection))
 	if err != nil {
 		panic(err)
 	}
-}
 
-// `Find` is supposed to be structured like so
-// `func (*mongo.Collection).Find(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (*mongo.Cursor, error)`
-// So I must be doing something wrong there cause my param isn't an interface, is it?
+	// var cityList []bson.M
+	// if err = cursor.All(r.Context(), &cityList); err != nil {
+	// 	log.Fatal(err)
+	// }
+	// for _, cityList := range cityList {
+	// fmt.Println(cityList["all_names"])
+	// fmt.Println(cityList["country_name"])
+	// }
+
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var cityList bson.M
+		if err = cursor.Decode(&cityList); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(cityList["all_names"])
+		fmt.Println(cityList["country_name"])
+	}
+}
