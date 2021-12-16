@@ -35,7 +35,7 @@ func setup() mongo.Database {
 
 // model for user endpoint
 type User struct {
-	Users []User
+	// Users []User
 	Email string `json:"email"`
 }
 
@@ -45,11 +45,6 @@ var users []User
 // checks if json is empty or not
 func (u *User) IsEmpty() bool {
 	return u.Email == ""
-}
-
-type server struct {
-	router *mux.Router
-	cities *mongo.Collection
 }
 
 func main() {
@@ -62,36 +57,37 @@ func main() {
 
 }
 
-// func (s *server) handleIndex() http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		cities := s.cities.Find // something like that
-// 		// the response
-// 	}
-// }
-
 func createUser(w http.ResponseWriter, r *http.Request) {
 	DB := setup()
-	w.Header().Set("Content-Type", "application/json")
-	if r.Body == nil {
-		json.NewEncoder(w).Encode("Must send data")
-	}
+	userCollection := DB.Collection("user")
+	// w.Header().Set("Content-Type", "application/json")
+	// if r.Body == nil {
+	// 	json.NewEncoder(w).Encode("Must send data")
+	// }
 
 	var user User
-	err := json.NewDecoder(r.Body).Decode(&user)
+	_ = json.NewDecoder(r.Body).Decode(&user)
+	inserted, err := userCollection.InsertOne(context.Background(), user)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if user.IsEmpty() {
-		json.NewEncoder(w).Encode("Invalid! Enter user email.")
-		return
-	}
-	users = append(users, user)
 	json.NewEncoder(w).Encode(user)
+	fmt.Println("Inserted user into db: ", inserted.InsertedID)
+	// err := json.NewDecoder(r.Body).Decode(&user)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// if user.IsEmpty() {
+	// 	json.NewEncoder(w).Encode("Invalid! Enter user email.")
+	// 	return
+	// }
+	// users = append(users, user)
+	// json.NewEncoder(w).Encode(user)
 
 }
 
 func searchCity(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	//ctx := context.Background()
 	DB := setup()
 	values := r.URL.Query()
 	city := values.Get("city_name")
@@ -100,32 +96,37 @@ func searchCity(w http.ResponseWriter, r *http.Request) {
 	// 	"all_names":    *city,
 	// 	"country_name": *city,
 	// }
+
 	// params := mux.Vars(r)
 	// city := params["city"]
 
 	cityCollection := DB.Collection("city")
 
-	cursor, err := cityCollection.Find(r.Context(), city) // options.Find().SetProjection(projection))
+	cursor, err := cityCollection.Find(r.Context(), bson.E{"$city", city}) // options.Find().SetProjection(projection))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	// var cityList []bson.M
-	// if err = cursor.All(r.Context(), &cityList); err != nil {
-	// 	log.Fatal(err)
-	// }
-	// for _, cityList := range cityList {
-	// fmt.Println(cityList["all_names"])
-	// fmt.Println(cityList["country_name"])
-	// }
-
-	defer cursor.Close(ctx)
-	for cursor.Next(ctx) {
-		var cityList bson.M
-		if err = cursor.Decode(&cityList); err != nil {
-			log.Fatal(err)
-		}
+	var cityList []bson.M
+	if err = cursor.All(r.Context(), &cityList); err != nil {
+		log.Fatal(err)
+	}
+	for _, cityList := range cityList {
 		fmt.Println(cityList["all_names"])
 		fmt.Println(cityList["country_name"])
 	}
+
+	// defer cursor.Close(ctx)
+	// for cursor.Next(ctx) {
+	// 	var cityList bson.M
+	// 	if err = cursor.Decode(&cityList); err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	fmt.Println(cityList["all_names"])
+	// 	fmt.Println(cityList["country_name"])
+	// }
+}
+
+func userAuth(w http.ResponseWriter r *http.Request) {
+	
 }
