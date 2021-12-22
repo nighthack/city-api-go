@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -37,6 +38,11 @@ func setup() mongo.Database {
 type User struct {
 	// Users []User
 	Email string `json:"email"`
+}
+
+type City struct {
+	Name string `bson:"name" json:"name"`
+	// CountryName string `bson:"country_name" json:"country"`
 }
 
 // fake db to temp store users
@@ -87,11 +93,19 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func searchCity(w http.ResponseWriter, r *http.Request) {
-	//ctx := context.Background()
+	// ctx := context.Background()
+	w.Header().Set("Content-Type", "application/json")
 	DB := setup()
 	values := r.URL.Query()
-	city := values.Get("city_name")
+	city := values["city_name"]
+	cityCollection := DB.Collection("city")
+	fmt.Println(city)
 
+	if len(city) == 0 {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"msg": "Search key required"}`))
+		return
+	}
 	// projection := bson.M{
 	// 	"all_names":    *city,
 	// 	"country_name": *city,
@@ -100,21 +114,48 @@ func searchCity(w http.ResponseWriter, r *http.Request) {
 	// params := mux.Vars(r)
 	// city := params["city"]
 
-	cityCollection := DB.Collection("city")
+	filter := bson.D{
+		primitive.E{
+			Key: "all_names", Value: primitive.Regex{
+				Pattern: city[0], Options: "i",
+			},
+		},
+	}
 
-	cursor, err := cityCollection.Find(r.Context(), bson.E{"$city", city}) // options.Find().SetProjection(projection))
+	cursor, err := cityCollection.Find(r.Context(), filter) // options.Find().SetProjection(projection))
 	if err != nil {
 		log.Fatal(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"msg": "There was an error. Try again later"}`))
+		return
 	}
 
-	var cityList []bson.M
-	if err = cursor.All(r.Context(), &cityList); err != nil {
-		log.Fatal(err)
+	var cityList []City
+	for cursor.Next(context.TODO()) {
+		var cities City
+		err := cursor.Decode(&cities)
+		if err != nil {
+			log.Fatal(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"msg": "There was an error. Try again later"}`))
+			return
+		}
+		cityList = append(cityList, cities)
 	}
-	for _, cityList := range cityList {
-		fmt.Println(cityList["all_names"])
-		fmt.Println(cityList["country_name"])
+	w.WriteHeader(http.StatusOK)
+	if len(cityList) == 0 {
+		w.Write([]byte(`{"cities": []}`))
+		return
 	}
+	json.NewEncoder(w).Encode(cityList)
+	// if err = cursor.All(r.Context(), &cityList); err != nil {
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// }
+
+	// for _, cityList := range cityList {
+	// 	fmt.Println(cityList["all_names"])
+	// 	fmt.Println(cityList["country_name"])
+	// }
 
 	// defer cursor.Close(ctx)
 	// for cursor.Next(ctx) {
@@ -125,8 +166,4 @@ func searchCity(w http.ResponseWriter, r *http.Request) {
 	// 	fmt.Println(cityList["all_names"])
 	// 	fmt.Println(cityList["country_name"])
 	// }
-}
-
-func userAuth(w http.ResponseWriter r *http.Request) {
-	
 }
