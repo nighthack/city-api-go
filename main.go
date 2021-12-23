@@ -40,8 +40,8 @@ func setup() {
 
 // model for user endpoint
 type User struct {
-	// Users []User
-	Email string `json:"email"`
+	Email       string `json:"email"`
+	AccessToken string `json:"token"`
 }
 
 type City struct {
@@ -65,12 +65,15 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	var user User
 	_ = json.NewDecoder(r.Body).Decode(&user)
 	userCollection := client.Database("cities-nighthack").Collection("user")
+	user.AccessToken = generateToken()
 	inserted, err := userCollection.InsertOne(context.Background(), user)
 	if err != nil {
-		log.Fatal(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Fatalln(err, "Failed to create user.")
 	}
 	json.NewEncoder(w).Encode(inserted)
 	fmt.Println("Inserted user into db: ", inserted.InsertedID)
+	fmt.Println("User-assigned token: ", user.AccessToken)
 
 }
 
@@ -146,6 +149,6 @@ func generateToken(n ...int) string {
 	h.Write([]byte(randString))
 	generatedToken := h.Sum(nil)
 
-	return fmt.Sprintf("User-assigned token: %x", generatedToken)
+	return fmt.Sprintf("%x", generatedToken)
 
 }
