@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 )
 
 var client mongo.Client
+var characterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 func setup() {
 	clientOptions := options.Client().
@@ -119,5 +122,30 @@ func searchCity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(cityList)
+
+}
+
+func genString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = characterRunes[rand.Intn(len(characterRunes))]
+	}
+	return string(b)
+}
+
+func generateToken(n ...int) string {
+	characters := 32
+
+	if len(n) > 0 {
+		characters = n[0]
+	}
+
+	randString := genString(characters)
+
+	h := sha256.New()
+	h.Write([]byte(randString))
+	generatedToken := h.Sum(nil)
+
+	return fmt.Sprintf("User-assigned token: %x", generatedToken)
 
 }
