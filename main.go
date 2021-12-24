@@ -5,12 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/rand"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"
+	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -53,6 +53,7 @@ func main() {
 	setup()
 	r := mux.NewRouter()
 	r.HandleFunc("/user", createUser).Methods("POST")
+	r.Use(APIAuth)
 	r.HandleFunc("/suggest", searchCity).Methods("GET")
 
 	fmt.Println("Server running at port 8080")
@@ -72,18 +73,14 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		log.Fatalln(err, "Failed to create user.")
 	}
 	json.NewEncoder(w).Encode(inserted)
-	fmt.Println("Inserted user into db: ", inserted.InsertedID)
-	fmt.Println("User-assigned token: ", user.AccessToken)
 
 }
 
 func searchCity(w http.ResponseWriter, r *http.Request) {
-	// ctx := context.Background()
 	w.Header().Set("Content-Type", "application/json")
 	values := r.URL.Query()
 	city := values["city_name"]
 	cityCollection := client.Database("cities-nighthack").Collection("city")
-	fmt.Println(city)
 
 	if len(city) == 0 {
 		w.WriteHeader(http.StatusOK)
@@ -99,11 +96,11 @@ func searchCity(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	cursor, err := cityCollection.Find(r.Context(), filter) // options.Find().SetProjection(projection))
+	cursor, err := cityCollection.Find(r.Context(), filter)
 	if err != nil {
 		log.Fatal(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"msg": "There was an error. Try again later"}`))
+		w.Write([]byte(`{"Error": "Could not execute cursor into query."}`))
 		return
 	}
 
@@ -114,7 +111,7 @@ func searchCity(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Fatal(err)
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"Error": "Error recieved. Please try again"}`))
+			w.Write([]byte(`{"Error": "Could not run cursor."}`))
 			return
 		}
 		cityList = append(cityList, cities)
@@ -126,6 +123,10 @@ func searchCity(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(cityList)
 
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }
 
 func genString(n int) string {
@@ -151,4 +152,28 @@ func generateToken(n ...int) string {
 
 	return fmt.Sprintf("%x", generatedToken)
 
+}
+
+func APIAuth(endpoint http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		accessToken := r.Header.Get("x-api-key")
+
+		// Check token in db
+		usersCollection := client.Database("cities-nighthack").Collection("user")
+		filter := bson.D{
+			primitive.E{
+				Key: "accesstoken", Value: accessToken,
+			},
+		}
+
+		var user User
+		err := usersCollection.FindOne(context.TODO(), filter).Decode(&user)
+		if err != nil {
+			http.Error(w, `Unauthorized access`, http.StatusUnauthorized)
+			log.Fatal(err)
+		} else {
+			endpoint.ServeHTTP(w, r)
+		}
+	})
 }
