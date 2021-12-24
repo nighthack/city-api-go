@@ -53,8 +53,7 @@ func main() {
 	setup()
 	r := mux.NewRouter()
 	r.HandleFunc("/user", createUser).Methods("POST")
-	r.Use(APIAuth)
-	r.HandleFunc("/suggest", searchCity).Methods("GET")
+	r.Handle("/suggest", APIAuth(searchCity)).Methods("GET")
 
 	fmt.Println("Server running at port 8080")
 	log.Fatal(http.ListenAndServe(":8080", r))
@@ -154,7 +153,7 @@ func generateToken(n ...int) string {
 
 }
 
-func APIAuth(endpoint http.Handler) http.Handler {
+func APIAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		accessToken := r.Header.Get("x-api-key")
@@ -173,7 +172,7 @@ func APIAuth(endpoint http.Handler) http.Handler {
 			http.Error(w, `Unauthorized access`, http.StatusUnauthorized)
 			log.Fatal(err)
 		} else {
-			endpoint.ServeHTTP(w, r)
+			endpoint(w, r)
 		}
 	})
 }
