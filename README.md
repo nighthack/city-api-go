@@ -1,6 +1,7 @@
 # city-api-go
 
 ## About this Project
+
 A microservice built to handle user registration and searching a database for a list of cities based on a user query. MongoDB is used to store and hold all user details as well as the list of existing cities to filter through. Built with [Go](https://go.dev/).
 
 ## Getting Started
@@ -43,4 +44,5 @@ and then run:
 ```go
 docker run fiddler46/sms-rails:<tag>
 ```
+
 It will then show that the MongoDB has started successfully and the application running at the specified port. All Postman rules from above still follow.
