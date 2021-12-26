@@ -20,10 +20,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
-var client mongo.Client
-var characterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+var client mongo.Client                                                                       // mongo client from setup declared globally
+var characterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") // character runes used for creation of tokens
 
-func setup() {
+func setup() { // Setup for mongodb connection using mongo drivers. Returns client.
 	clientOptions := options.Client().
 		ApplyURI(os.Getenv("DB_URI"))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -48,7 +48,6 @@ type User struct {
 
 type City struct {
 	Name string `bson:"name" json:"name"`
-	// CountryName string `bson:"country_name" json:"country"`
 }
 
 func main() {
@@ -59,21 +58,23 @@ func main() {
 
 	setup()
 	r := mux.NewRouter()
-	r.Handle("/user", UserAuth(createUser)).Methods("POST")
-	r.Handle("/suggest", APIAuth(searchCity)).Methods("GET")
+	r.Handle("/user", UserAuth(createUser)).Methods("POST")  // Route for registering new users
+	r.Handle("/suggest", APIAuth(searchCity)).Methods("GET") // Route for searching cities within DB
 
 	fmt.Println("Server running at port 8080")
 	log.Fatal(http.ListenAndServe(":8080", r))
 
 }
 
-func createUser(w http.ResponseWriter, r *http.Request) {
+func createUser(w http.ResponseWriter, r *http.Request) { // POST request that takes in user details, generates an access token and inserts them into the DB
 	w.Header().Add("content-type", "application/json")
+
 	var user User
 	_ = json.NewDecoder(r.Body).Decode(&user)
-	userCollection := client.Database(os.Getenv("CITY_DB")).Collection(os.Getenv("COL_USER"))
-	user.AccessToken = generateToken()
-	_, err := userCollection.InsertOne(context.Background(), user)
+	userCollection := client.Database(os.Getenv("CITY_DB")).Collection(os.Getenv("COL_USER")) // Holds 'user' collection from DB
+	user.AccessToken = generateToken()                                                        // Generated access token is assigned to user struct
+
+	_, err := userCollection.InsertOne(context.Background(), user) // Details are inserted into the collection
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Fatalln(err, "Failed to create user.")
@@ -82,11 +83,12 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func searchCity(w http.ResponseWriter, r *http.Request) {
+func searchCity(w http.ResponseWriter, r *http.Request) { // GET request that takes in a url param and returns a list of cities from the DB
 	w.Header().Set("Content-Type", "application/json")
+
 	values := r.URL.Query()
-	city := values["city_name"]
-	cityCollection := client.Database(os.Getenv("CITY_DB")).Collection(os.Getenv("COL_CITY"))
+	city := values["city_name"]                                                               // Assigns url param from route `/suggest?city_name=` to 'city'
+	cityCollection := client.Database(os.Getenv("CITY_DB")).Collection(os.Getenv("COL_CITY")) // Holds 'city' collection from DB
 
 	if len(city) == 0 {
 		w.WriteHeader(http.StatusOK)
@@ -94,7 +96,7 @@ func searchCity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filter := bson.D{
+	filter := bson.D{ //Regex filter for querying the input through the DB
 		primitive.E{
 			Key: "all_names", Value: primitive.Regex{
 				Pattern: city[0], Options: "i",
@@ -102,7 +104,7 @@ func searchCity(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	cursor, err := cityCollection.Find(r.Context(), filter)
+	cursor, err := cityCollection.Find(r.Context(), filter) // Query to find city is declared with cursor
 	if err != nil {
 		log.Fatal(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -111,7 +113,7 @@ func searchCity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var cityList []City
-	for cursor.Next(context.TODO()) {
+	for cursor.Next(context.TODO()) { // Runs through each document entry in DB to see if regex matches
 		var cities City
 		err := cursor.Decode(&cities)
 		if err != nil {
@@ -120,7 +122,7 @@ func searchCity(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(`{"Error": "Could not run cursor."}`))
 			return
 		}
-		cityList = append(cityList, cities)
+		cityList = append(cityList, cities) // List of cities is appended to cityList
 	}
 	w.WriteHeader(http.StatusOK)
 	if len(cityList) == 0 {
@@ -132,10 +134,10 @@ func searchCity(w http.ResponseWriter, r *http.Request) {
 }
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(time.Now().UnixNano()) // Creates a new seed for randomising the access token
 }
 
-func genString(n int) string {
+func genString(n int) string { // Generates a randomised string from the character runes
 	b := make([]rune, n)
 	for i := range b {
 		b[i] = characterRunes[rand.Intn(len(characterRunes))]
@@ -143,7 +145,7 @@ func genString(n int) string {
 	return string(b)
 }
 
-func generateToken(n ...int) string {
+func generateToken(n ...int) string { // Generates a token for when a new user registers their details
 	characters := 32
 
 	if len(n) > 0 {
@@ -160,12 +162,12 @@ func generateToken(n ...int) string {
 
 }
 
-func APIAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
+func APIAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler { // Middleware to check if access token is contained within header when running searchCity
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		accessToken := r.Header.Get("x-api-key")
 
-		// Check token in db
+		// Checks token in db
 		usersCollection := client.Database(os.Getenv("CITY_DB")).Collection(os.Getenv("COL_USER"))
 		filter := bson.D{
 			primitive.E{
@@ -184,7 +186,7 @@ func APIAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
 	})
 }
 
-func UserAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
+func UserAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler { // Middleware to check if user registering has appropriate auth token
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		accessToken := r.Header.Get("x-access-token")
 		if accessToken != os.Getenv("USER_AUTH_TOKEN") {
