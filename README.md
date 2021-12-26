@@ -42,7 +42,7 @@ docker pull fiddler46/city-api-go:<tag>
 and then run:
 
 ```go
-docker run fiddler46/sms-rails:<tag>
+docker run fiddler46/city-api-go:<tag>
 ```
 
 It will then show that the MongoDB has started successfully and the application running at the specified port. All Postman rules from above still follow.
