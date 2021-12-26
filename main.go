@@ -59,7 +59,7 @@ func main() {
 
 	setup()
 	r := mux.NewRouter()
-	r.HandleFunc("/user", createUser).Methods("POST")
+	r.Handle("/user", UserAuth(createUser)).Methods("POST")
 	r.Handle("/suggest", APIAuth(searchCity)).Methods("GET")
 
 	fmt.Println("Server running at port 8080")
@@ -178,6 +178,17 @@ func APIAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
 		if err != nil {
 			http.Error(w, `Unauthorized access`, http.StatusUnauthorized)
 			log.Fatal(err)
+		} else {
+			endpoint(w, r)
+		}
+	})
+}
+
+func UserAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		accessToken := r.Header.Get("x-access-token")
+		if accessToken != os.Getenv("USER_AUTH_TOKEN") {
+			http.Error(w, "Unauthorized access", http.StatusUnauthorized)
 		} else {
 			endpoint(w, r)
 		}
