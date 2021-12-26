@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -23,7 +25,7 @@ var characterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY
 
 func setup() {
 	clientOptions := options.Client().
-		ApplyURI("mongodb+srv://Fiddler46:Fiddler46@cluster0.um5qb.mongodb.net/cities-nighthack?retryWrites=true&w=majority")
+		ApplyURI(os.Getenv("DB_URI"))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	clientLocal, err := mongo.Connect(ctx, clientOptions)
@@ -50,6 +52,11 @@ type City struct {
 }
 
 func main() {
+	err := godotenv.Load() // Loads environment variables from .env
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	setup()
 	r := mux.NewRouter()
 	r.HandleFunc("/user", createUser).Methods("POST")
@@ -64,14 +71,14 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("content-type", "application/json")
 	var user User
 	_ = json.NewDecoder(r.Body).Decode(&user)
-	userCollection := client.Database("cities-nighthack").Collection("user")
+	userCollection := client.Database(os.Getenv("CITY_DB")).Collection(os.Getenv("COL_USER"))
 	user.AccessToken = generateToken()
-	inserted, err := userCollection.InsertOne(context.Background(), user)
+	_, err := userCollection.InsertOne(context.Background(), user)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Fatalln(err, "Failed to create user.")
 	}
-	json.NewEncoder(w).Encode(inserted)
+	json.NewEncoder(w).Encode(user)
 
 }
 
@@ -79,7 +86,7 @@ func searchCity(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	values := r.URL.Query()
 	city := values["city_name"]
-	cityCollection := client.Database("cities-nighthack").Collection("city")
+	cityCollection := client.Database(os.Getenv("CITY_DB")).Collection(os.Getenv("COL_CITY"))
 
 	if len(city) == 0 {
 		w.WriteHeader(http.StatusOK)
@@ -159,7 +166,7 @@ func APIAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
 		accessToken := r.Header.Get("x-api-key")
 
 		// Check token in db
-		usersCollection := client.Database("cities-nighthack").Collection("user")
+		usersCollection := client.Database(os.Getenv("CITY_DB")).Collection(os.Getenv("COL_USER"))
 		filter := bson.D{
 			primitive.E{
 				Key: "accesstoken", Value: accessToken,
