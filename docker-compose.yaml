@@ -1,5 +1,6 @@
 version: '3.3'
 services:
+  
   app: 
     hostname: ${HOSTNAME}
     network_mode: "host"
@@ -8,5 +9,10 @@ services:
       dockerfile: dockerfile
     ports: 
       - "8080:8080"
+  
+  db:
+    image: mongo
+    ports:
+      - "8001:27017"
     restart: unless-stopped
     env_file: .env
