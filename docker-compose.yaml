@@ -1,18 +1,33 @@
 version: '3.3'
 services:
+  db:
+    hostname: mongo-test
+    container_name: "mongo-test"
+    image: mongo
+    networks:
+      - app_test
+    ports:
+      - "8001:27017"
+    #   - "27017:27017"
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      - ".mongodata:/data/db"
   
   app: 
-    hostname: ${HOSTNAME}
-    network_mode: "host"
+    hostname: app-test
+    container_name: "app"
     build: 
       context: .
       dockerfile: dockerfile
+    networks:
+      - app_test
     ports: 
-      - "8080:8080"
-  
-  db:
-    image: mongo
-    ports:
-      - "8001:27017"
+      - "54321:8080"
+      # - "8080:8080"
     restart: unless-stopped
     env_file: .env
+
+networks:
+  app_test: {}
+

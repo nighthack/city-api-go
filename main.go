@@ -17,7 +17,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 var client mongo.Client                                                                       // mongo client from setup declared globally
@@ -30,12 +29,12 @@ func setup() { // Setup for mongodb connection using mongo drivers. Returns clie
 	defer cancel()
 	clientLocal, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalln(err, "This is from the first one")
 	}
-	err = clientLocal.Ping(ctx, readpref.Primary())
-	if err != nil {
-		log.Fatal(err)
-	}
+	// err = clientLocal.Ping(ctx, readpref.Primary())
+	// if err != nil {
+	// 	log.Fatalln(err, "This is from the second one")
+	// }
 	fmt.Println("MongoDB started successfully!")
 	client = *clientLocal
 }
