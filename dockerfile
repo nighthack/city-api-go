@@ -14,4 +14,4 @@ RUN go build -o main .
 EXPOSE 8080
 
 # Command that starts the container
-CMD ["/app/main"]
+CMD ["./main"]

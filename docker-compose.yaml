@@ -6,13 +6,13 @@ services:
     image: mongo
     networks:
       - app_test
-    ports:
-      - "8001:27017"
+    ports: 
+        - "8001:27017" 
     #   - "27017:27017"
     env_file: .env
     restart: unless-stopped
     volumes:
-      - ".mongodata:/data/db"
+      - "mongodata:/data/db"
   
   app: 
     hostname: app-test
@@ -31,3 +31,5 @@ services:
 networks:
   app_test: {}
 
+volumes:
+  mongodata:

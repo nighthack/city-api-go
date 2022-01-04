@@ -31,18 +31,19 @@ The available routes and how to access them can be found here in this [Postman D
 
 ### Running on Docker
 
-The app is also available to use with [Docker](https://docs.docker.com/engine/install/) and can be used either locally or on a service like [Docker Playground](https://labs.play-with-docker.com/). The image for the app can be found [here](https://hub.docker.com/r/fiddler46/city-api-go).
+Import the DB on terminal
 
-Simply pull:
+```shell
+./localmon.sh
+```
+Run docker compose
 
-```go
-docker pull fiddler46/city-api-go:<tag>
+```shell
+docker-compose up
 ```
 
-and then run:
+Insert appropriate request to search. Ensure API access credentials on x-api-key header.
 
-```go
-docker run fiddler46/city-api-go:<tag>
+```shell
+http://localhost:54321/suggest?city_name=<insertcityname>
 ```
-
-It will then show that the MongoDB has started successfully and the application running at the specified port. All Postman rules from above still follow.
